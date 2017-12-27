@@ -2,7 +2,7 @@
   "name": "amjs",
   "version": "0.0.1",
   "description": "Actor Model for the Browser/Node using Web Workers",
-  "main": "index.js",
+  "main": "dist/amjs.js",
   "scripts": {
     "test": "tsc"
   },
