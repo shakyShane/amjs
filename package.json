@@ -1,0 +1,16 @@
+{
+  "name": "amjs",
+  "version": "0.0.1",
+  "description": "Actor Model for the Browser/Node using Web Workers",
+  "main": "index.js",
+  "scripts": {
+    "test": "tsc"
+  },
+  "keywords": ["actor model", "webworkers"],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "typescript": "^2.6.2"
+  },
+  "repository": "shakyShane/amjs"
+}
