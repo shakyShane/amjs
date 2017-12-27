@@ -6,6 +6,9 @@
   "scripts": {
     "test": "tsc"
   },
+  "files": [
+    "dist"
+  ],
   "keywords": ["actor model", "webworkers"],
   "author": "",
   "license": "ISC",
