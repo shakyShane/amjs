@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
-    "lib": ["es5"],
-    "noEmitOnError": true,
+    "lib": ["es2015", "DOM"],
+//    "noEmitOnError": true,
 //    "noImplicitAny": true,
     "noImplicitThis": true,
     "noUnusedLocals": true,
@@ -13,12 +13,10 @@
     "sourceMap": true,
     "target": "es5",
     "newLine": "lf",
-    "types": [],
     "outFile": "dist/amjs.js",
     "declaration": true
   },
-  "files": [
-    "src/System.ts",
-    "src/Shims.ts"
+  "include": [
+    "src/*"
   ]
 }

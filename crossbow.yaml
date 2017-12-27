@@ -1,0 +1,6 @@
+watch:
+  default:
+    options:
+      group: 500
+    dist/amjs.js:
+      - '@npm browserify dist/amjs.js -d --standalone amjs > dist/browser.js'
