@@ -1,6 +1,6 @@
 {
   "name": "amjs",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Actor Model for the Browser/Node using Web Workers",
   "main": "dist/amjs.js",
   "scripts": {
@@ -9,7 +9,10 @@
   "files": [
     "dist"
   ],
-  "keywords": ["actor model", "webworkers"],
+  "keywords": [
+    "actor model",
+    "webworkers"
+  ],
   "author": "",
   "license": "ISC",
   "devDependencies": {
