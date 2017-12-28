@@ -28,9 +28,10 @@ namespace amjs {
                         };
                         postmessage(readyMessage);
                     }
+                    break;
                 }
                 case MessageTypes.Incoming: {
-
+                    console.log('MessageTypes.Incoming', data);
                 }
             }
         })

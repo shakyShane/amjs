@@ -1,7 +1,7 @@
-importScripts('../../dist/browser.js');
-amjs.addWorker(function Pong(address, {send}) {
+importScripts('browser.js');
+amjs.addWorker(function Pong(address) {
     return {
-        receive({type, address, name}, sender) {
+        receive({type, address, name} = {}, sender) {
             // switch (type) {
             //     case 'ping': {
             //         send(sender, 'pong')

@@ -40,8 +40,10 @@ namespace amjs {
                     sender: actorRef(this.address)
                 };
                 actor.worker.postMessage(m);
-                return this.responses.filter((x: Message) => x.messageID === messageId)
-                    .take(1).toPromise();
+                return this.responses
+                    .filter((x: Message) => x.messageID === messageId)
+                    .take(1)
+                    .toPromise();
             }
             return Promise.reject();
         }
@@ -60,6 +62,7 @@ namespace amjs {
                     const data: Message = e.data;
                     switch(data.type) {
                         case MessageTypes.PostStart: {
+                            console.log('postpsta');
                             this.register[address].status = ActorStatus.Online;
                         }
                         case MessageTypes.Response: {
