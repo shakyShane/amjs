@@ -2,52 +2,71 @@ let {BehaviorSubject} = require('rxjs/BehaviorSubject');
 
 namespace amjs {
     export type Address = string;
+    export type WorkerPath = string;
     export function addWorker(factory, addEventLister, postmessage) {
         let hasInstance = false;
         let instance;
         let _address;
         let state;
 
-        function createContext() {
-            return {}
+        function createContext(address: string) {
+            return {
+                actorOf(...args) {
+                    const readyMessage: CreateChildActorMessage = {
+                        type: MessageTypes.CreateChildActor,
+                        message: {
+                            workerPath: args[0],
+                            parent: actorRef(address),
+                            name: args[1] || uuid()
+                        },
+                        sender: actorRef(_address),
+                        messageID: uuid()
+                    };
+
+                    postmessage(readyMessage);
+                }
+            }
         }
 
         addEventLister('message', function(e) {
             const message: Message = e.data;
             switch(message.type) {
                 case MessageTypes.PreStart: {
-                    if (!hasInstance) {
-
-                        const {address} = message.message;
-
-                        _address = address;
-                        // const parent = message.sender;
-                        const context = createContext();
-
-                        instance = new factory(address, context);
-                        hasInstance = true;
-
-                        const initialState = (() => {
-                            if (typeof instance.initialState === 'function') {
-                                return initialState(address, context);
-                            }
-                            return instance.initialState;
-                        })();
-
-                        state = new BehaviorSubject(initialState);
-
-                        if (instance.postStart) {
-                            instance.postStart();
-                        }
-
-                        const readyMessage: Message = {
-                            type: MessageTypes.PostStart,
-                            message: {},
-                            sender: actorRef(address),
-                            messageID: uuid()
-                        };
-                        postmessage(readyMessage);
+                    if (hasInstance) {
+                        return;
                     }
+
+                    const {address} = message.message;
+
+                    _address = address;
+                    // const parent = message.sender;
+                    const context = createContext(_address);
+
+                    instance = new factory(address, context);
+                    hasInstance = true;
+
+                    const initialState = (() => {
+                        if (typeof instance.initialState === 'function') {
+                            return initialState(address, context);
+                        }
+                        return instance.initialState;
+                    })();
+
+                    state = new BehaviorSubject(initialState);
+
+                    if (instance.postStart) {
+                        instance.postStart();
+                    }
+
+                    const readyMessage: Message = {
+                        type: MessageTypes.PostStart,
+                        message: {},
+                        sender: actorRef(address),
+                        messageID: uuid()
+                    };
+
+                    postmessage(readyMessage);
+
                     break;
                 }
                 case MessageTypes.Incoming: {

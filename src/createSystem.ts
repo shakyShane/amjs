@@ -1,5 +1,5 @@
 namespace amjs {
-    export function createSystem(opts: string): ActorSystem {
-        return new ActorSystem(opts);
+    export function createSystem(address: string, opts: any): ActorSystem {
+        return new ActorSystem(address, opts);
     }
 }

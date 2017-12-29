@@ -15,6 +15,7 @@ namespace amjs {
         Incoming = '@@Incoming',
         Outgoing = '@@Outgoing',
         Response = '@@Response',
+        CreateChildActor = '@@CreateChildActor',
     }
     export interface Message<T = any> {
         type: MessageTypes
@@ -27,7 +28,13 @@ namespace amjs {
         respID: Address,
         target: ActorRef
     }
+    export interface MessageCreateChildType {
+        workerPath: WorkerPath,
+        parent: ActorRef,
+        name: string
+    }
     export type OutgoingMessage = Message<MessageOutgoingType>
+    export type CreateChildActorMessage = Message<MessageCreateChildType>
     export enum ActorStatus {
         Pending = '@@Pending',
         Online = '@@Online'
@@ -43,10 +50,9 @@ namespace amjs {
         return {address};
     }
     export class ActorSystem {
-        public address = '/system';
         public register: {[address: string]: ActorRegisterEntry} = {};
         public responses = new Subject();
-        constructor(public opts: string) {}
+        constructor(public address: string, public opts: string) {}
 
         /**
          * @param {amjs.ActorRef} ref
@@ -75,10 +81,11 @@ namespace amjs {
         /**
          * @param {string} workerPath
          * @param {any} name
+         * @param parent
          * @returns {amjs.ActorRef}
          */
-        public actorOf (workerPath: string, name = uuid()): ActorRef {
-            const address = [this.address, name].join('/');
+        public actorOf (workerPath: string, name = uuid(), parent = '/system'): ActorRef {
+            const address = [parent, name].join('/');
             const w = new Worker(workerPath);
             const m: Message = {
                 type: MessageTypes.PreStart,
@@ -99,6 +106,28 @@ namespace amjs {
                             this.responses.next(data);
                             break;
                         }
+                        case MessageTypes.CreateChildActor: {
+                            const message: CreateChildActorMessage = data;
+                            const {name, workerPath, parent} = message.message;
+                            /**
+                             * {
+                                  "type": "@@CreateChildActor",
+                                  "message": {
+                                    "workerPath": "worker-child.js",
+                                    "parent": {
+                                      "address": "/system/82cc15bd-f4e0-44c7-83dd-e511b59cf794"
+                                    },
+                                    "name": "a5cadb99-62cb-433d-a0af-b39b4617d7a6"
+                                  },
+                                  "sender": {
+                                    "address": "/system/82cc15bd-f4e0-44c7-83dd-e511b59cf794"
+                                  },
+                                  "messageID": "c8ad06c4-449f-4c5d-9204-b2caf023a7c0"
+                                }
+                             */
+                            this.actorOf(workerPath, name, parent.address);
+                            break;
+                        }
                     }
                 }
             };
@@ -114,6 +143,8 @@ namespace amjs {
                 mailbox: mailbox$,
                 mailboxForwarderSubscription,
             };
+
+            console.log(this.register);
 
             return {
                 address
