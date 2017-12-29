@@ -22,7 +22,14 @@
   },
   "repository": "shakyShane/amjs",
   "dependencies": {
+    "browser-sync": "^2.23.1",
     "rxjs": "^5.5.6",
+    "sourceify": "^0.1.0",
     "uuid": "^3.1.0"
+  },
+  "browserify": {
+    "transform": [
+      "sourceify"
+    ]
   }
 }

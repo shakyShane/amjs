@@ -5,10 +5,14 @@ const actorRef = system.actorOf('worker-1.js');
 run();
 
 async function run() {
-    console.log('here');
-    console.log(actorRef);
-    setTimeout(() => {
-        console.log(system.register[actorRef.address].status);
-    }, 100)
-    // console.log('sent!');
+
+    const out = await Promise.all([
+        system.send(actorRef, 'ping 1!'),
+        system.send(actorRef, 'ping 2!'),
+        system.send(actorRef, 'ping 3!'),
+    ]);
+
+    out.forEach((resp, index) => {
+        console.log(resp.payload, index);
+    });
 }

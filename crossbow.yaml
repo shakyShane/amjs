@@ -2,5 +2,21 @@ watch:
   default:
     options:
       group: 500
+    before:
+      - build
+      - '@bg tsc -w'
+      - '@bg ./node_modules/.bin/browser-sync . --files examples --no-open'
     dist/amjs.js:
-      - '@npm browserify dist/amjs.js -d --standalone amjs > dist/browser.js'
+      - browserify
+      - '@npm browser-sync reload'
+
+tasks:
+  examples:
+    - '@npm browser-sync . -w'
+
+  build:
+    - ts
+    - browserify
+
+  ts: '@npm tsc'
+  browserify: '@npm browserify dist/amjs.js -d --standalone amjs > dist/browser.js'
