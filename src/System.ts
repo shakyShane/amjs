@@ -10,12 +10,15 @@ namespace amjs {
         address: Address
     }
     export enum MessageTypes {
+        Send = '@@Send',
+        Ack = '@@Ack',
         PreStart = '@@PreStart',
         PostStart = '@@PostStart',
         Incoming = '@@Incoming',
         Outgoing = '@@Outgoing',
         Response = '@@Response',
         CreateChildActor = '@@CreateChildActor',
+        ChildError = '@@ChildError',
     }
     export interface Message<T = any> {
         type: MessageTypes
@@ -28,23 +31,36 @@ namespace amjs {
         respID: Address,
         target: ActorRef
     }
+    export interface SendMessageType {
+        payload: any,
+        target: ActorRef
+    }
     export interface MessageCreateChildType {
         workerPath: WorkerPath,
         parent: ActorRef,
         name: string
     }
     export type OutgoingMessage = Message<MessageOutgoingType>
+    export type SendMessage = Message<SendMessageType>
     export type CreateChildActorMessage = Message<MessageCreateChildType>
+    export enum ActorTypes {
+        System = 'System',
+        Worker = 'Worker'
+    }
     export enum ActorStatus {
         Pending = '@@Pending',
-        Online = '@@Online'
+        Online = '@@Online',
+        Errored = '@@Errored',
     }
     export interface ActorRegisterEntry {
-        status: ActorStatus,
+        type: ActorTypes,
+        status?: ActorStatus,
         ref: ActorRef,
-        worker: Worker,
-        mailbox: any,
-        mailboxForwarderSubscription: any,
+        worker?: Worker,
+        mailbox?: any,
+        mailboxForwarderSubscription?: any,
+        workerPath?: string,
+        parent?: ActorRef,
     }
     export function actorRef(address: string): ActorRef {
         return {address};
@@ -52,7 +68,27 @@ namespace amjs {
     export class ActorSystem {
         public register: {[address: string]: ActorRegisterEntry} = {};
         public responses = new Subject();
-        constructor(public address: string, public opts: string) {}
+        constructor(public address: string, public opts: string) {
+
+            const mailbox$ = new Subject();
+            const mailboxForwarderSubscription = mailbox$
+                .filter((x: Message) => x.type === MessageTypes.ChildError)
+                .pluck('message')
+                .do(x => {
+                    const actor = this.register[x.ref.address];
+                    actor.status = ActorStatus.Errored;
+                    this.actorOf(actor.workerPath, actor.ref.address, actor.parent.address);
+                })
+                .subscribe();
+
+            this.register[address] = {
+                type: ActorTypes.System,
+                status: ActorStatus.Pending,
+                ref: {address},
+                mailbox: mailbox$,
+                mailboxForwarderSubscription,
+            };
+        }
 
         /**
          * @param {amjs.ActorRef} ref
@@ -94,57 +130,131 @@ namespace amjs {
                 messageID: uuid()
             };
             w.postMessage(m);
+            w.onerror = (e) => {
+                const parentRef = actorRef(parent);
+                const parentActor = this.register[parent];
+                const {message, filename, lineno} = e;
+                const outgoingMessage = {
+                    type: MessageTypes.ChildError,
+                    message: {
+                        ref: actorRef(address),
+                        error: {message, filename, lineno},
+                    },
+                    sender: parentRef,
+                    messageID: uuid(),
+                };
+                return parentActor.mailbox.next(outgoingMessage);
+            };
             w.onmessage = (e) => {
-                if (this.register[address]) {
-                    const data: Message = e.data;
-                    switch(data.type) {
-                        case MessageTypes.PostStart: {
-                            this.register[address].status = ActorStatus.Online;
-                            break;
+                if (!this.register[address]) {
+                    return;
+                }
+
+                const data: Message = e.data;
+
+                switch(data.type) {
+                    case MessageTypes.PostStart: {
+                        this.register[address].status = ActorStatus.Online;
+                        break;
+                    }
+                    case MessageTypes.Outgoing: {
+                        this.responses.next(data);
+                        break;
+                    }
+                    case MessageTypes.Send: {
+                        const data: SendMessage = e.data;
+                        const targetActor = this.register[data.message.target.address];
+                        const originalAckId = data.messageID;
+
+                        /**
+                         * Send the message
+                         */
+                        if (targetActor && targetActor.status !== ActorStatus.Errored) {
+                            const messageID = uuid();
+                            const m: Message = {
+                                sender: actorRef(address),
+                                type: MessageTypes.Incoming,
+                                messageID: messageID,
+                                message: data.message.payload,
+                            };
+                            // console.log('messageID', data.messageID);
+                            targetActor.mailbox.next(m);
+                            this.responses
+                            // .do(x => console.log(messageID, x.messageID))
+                                .filter((x: Message) => x.type === MessageTypes.Outgoing)
+                                .filter((x: OutgoingMessage) => x.message.respID === messageID)
+                                .pluck('message')
+                                .take(1)
+                                .do(x => {
+                                    const ackid = uuid();
+                                    const m: Message = {
+                                        sender: actorRef(address),
+                                        type: MessageTypes.Ack,
+                                        messageID: ackid,
+                                        message: {
+                                            respID: originalAckId,
+                                            payload: x.payload,
+                                        },
+                                    };
+                                    w.postMessage(m);
+                                })
+                                .subscribe()
                         }
-                        case MessageTypes.Outgoing: {
-                            this.responses.next(data);
-                            break;
-                        }
-                        case MessageTypes.CreateChildActor: {
-                            const message: CreateChildActorMessage = data;
-                            const {name, workerPath, parent} = message.message;
-                            /**
-                             * {
-                                  "type": "@@CreateChildActor",
-                                  "message": {
-                                    "workerPath": "worker-child.js",
-                                    "parent": {
-                                      "address": "/system/82cc15bd-f4e0-44c7-83dd-e511b59cf794"
-                                    },
-                                    "name": "a5cadb99-62cb-433d-a0af-b39b4617d7a6"
-                                  },
-                                  "sender": {
-                                    "address": "/system/82cc15bd-f4e0-44c7-83dd-e511b59cf794"
-                                  },
-                                  "messageID": "c8ad06c4-449f-4c5d-9204-b2caf023a7c0"
-                                }
-                             */
-                            this.actorOf(workerPath, name, parent.address);
-                            break;
-                        }
+
+
+                        // /**
+                        //  * Send an ack to the sender
+                        //  */
+
+                        break;
+                    }
+                    case MessageTypes.CreateChildActor: {
+                        const message: CreateChildActorMessage = data;
+                        const {name, workerPath, parent} = message.message;
+                        /**
+                         * {
+                              "type": "@@CreateChildActor",
+                              "message": {
+                                "workerPath": "worker-child.js",
+                                "parent": {
+                                  "address": "/system/82cc15bd-f4e0-44c7-83dd-e511b59cf794"
+                                },
+                                "name": "a5cadb99-62cb-433d-a0af-b39b4617d7a6"
+                              },
+                              "sender": {
+                                "address": "/system/82cc15bd-f4e0-44c7-83dd-e511b59cf794"
+                              },
+                              "messageID": "c8ad06c4-449f-4c5d-9204-b2caf023a7c0"
+                            }
+                         */
+                        this.actorOf(workerPath, name, parent.address);
+                        break;
                     }
                 }
             };
+
             const mailbox$ = new Subject();
             const mailboxForwarderSubscription = mailbox$
-                .do(x => w.postMessage(x))
+                .do(x => {
+                    const status = this.register[address].status;
+                    if (status !== ActorStatus.Errored) {
+                        w.postMessage(x);
+                    } else {
+                        console.log('skipping a message');
+                    }
+                })
                 .subscribe();
 
             this.register[address] = {
+                type: ActorTypes.Worker,
                 status: ActorStatus.Pending,
                 ref: {address},
                 worker: w,
                 mailbox: mailbox$,
                 mailboxForwarderSubscription,
+                parent: actorRef(parent),
+                workerPath,
             };
-
-            console.log(this.register);
 
             return {
                 address

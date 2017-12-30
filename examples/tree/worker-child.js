@@ -6,10 +6,11 @@ amjs.addWorker(function WorkerChild(address, context) {
             count: 0,
         },
         receive({message}, {respond, state}) {
-            console.log('[child] receive()', message);
+            console.log(`[child] receive() --- Address: ${address}`, message);
+            respond('Hello there!');
         },
         postStart() {
-            console.log('[child] postStart()');
+            console.log(`[child] postStart() --- Address: ${address}`);
             // child = context.actorOf('worker-child.js');
         }
     }

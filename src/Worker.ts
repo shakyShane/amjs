@@ -1,9 +1,10 @@
 let {BehaviorSubject} = require('rxjs/BehaviorSubject');
-
 namespace amjs {
     export type Address = string;
     export type WorkerPath = string;
-    export function addWorker(factory, addEventLister, postmessage) {
+
+    export function addWorker(factory, addEventListener, postmessage) {
+        let ack$ = new Subject();
         let hasInstance = false;
         let instance;
         let _address;
@@ -11,24 +12,51 @@ namespace amjs {
 
         function createContext(address: string) {
             return {
-                actorOf(...args) {
-                    const readyMessage: CreateChildActorMessage = {
+                actorOf(...args): ActorRef {
+                    const name = args[1] || uuid();
+                    const createChildMessage: CreateChildActorMessage = {
                         type: MessageTypes.CreateChildActor,
                         message: {
                             workerPath: args[0],
                             parent: actorRef(address),
-                            name: args[1] || uuid()
+                            name,
                         },
                         sender: actorRef(_address),
                         messageID: uuid()
                     };
 
-                    postmessage(readyMessage);
+                    postmessage(createChildMessage);
+
+                    return {
+                        address: [address, name].join('/'),
+                    }
+                },
+                send(ref: ActorRef, message: any) {
+
+                    const messageID = uuid();
+                    const outgoingMessage: SendMessage = {
+                        type: MessageTypes.Send,
+                        message: {
+                            target: ref,
+                            payload: message,
+                        },
+                        sender: actorRef(address),
+                        messageID: messageID
+                    };
+
+                    postmessage(outgoingMessage);
+
+                    return ack$
+                        .filter((x: Message) => x.type === MessageTypes.Ack)
+                        .filter((x: OutgoingMessage) => x.message.respID === messageID)
+                        .pluck('message')
+                        .take(1)
+                        .toPromise();
                 }
             }
         }
 
-        addEventLister('message', function(e) {
+        addEventListener('message', function(e) {
             const message: Message = e.data;
             switch(message.type) {
                 case MessageTypes.PreStart: {
@@ -55,7 +83,11 @@ namespace amjs {
                     state = new BehaviorSubject(initialState);
 
                     if (instance.postStart) {
-                        instance.postStart();
+                        try {
+                            instance.postStart();
+                        } catch (e) {
+                            console.log(`Error in postStart() of ${_address}`, e);
+                        }
                     }
 
                     const readyMessage: Message = {
@@ -98,8 +130,21 @@ namespace amjs {
                             }
                         };
 
-                        instance.receive(message, {respond, setState, state: state.getValue()});
+                        try {
+                            instance.receive(message, {respond, setState, state: state.getValue()});
+                        } catch (e) {
+                            console.log(`Error from receive() of ${_address}`);
+                        }
                     }
+                    break;
+                }
+                case MessageTypes.ChildError: {
+                    console.log(message);
+                    break;
+                }
+                case MessageTypes.Ack: {
+                    ack$.next(message);
+                    break;
                 }
             }
         })
