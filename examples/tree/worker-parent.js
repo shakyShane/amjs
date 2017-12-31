@@ -1,28 +1,25 @@
 importScripts('/dist/browser.js');
-amjs.addWorker(function WorkerParent(address, {actorOf, send}) {
+amjs.addWorker(function WorkerParent(address, {actorOf, send, sendAndWait}) {
     let child;
     return {
         type: 'supervisor',
         initialState: {
             count: 0,
         },
-        async receive({message}, {respond, state}) {
-            console.log(`[parent] receive() --- Address: ${address}`, message);
-            if (message === 'children') {
+        async receive({message}, {respond, state, sender}) {
+            if (message === 'spawn children') {
                 child = actorOf('worker-child.js', 'child');
-                const resps = await Promise.all([
-                    send(child, 'Hi!'),
-                    send(child, 'Hi!'),
-                    send(child, 'Hi!'),
-                    send(child, 'Hi!'),
+                const resp = await Promise.all([
+                    sendAndWait(child, 100),
+                    sendAndWait(child, 200),
+                    sendAndWait(child, 300),
+                    sendAndWait(child, 400),
                 ]);
-                console.log(resps);
+                respond(resp.map(x => x.payload));
             }
-            // throw new Error('Ooops!');
-            // console.log('received', message);
         },
         postStart() {
-            console.log(`[parent] postStart() --- Address: ${address}`);
+            // console.log(`[parent] postStart() --- Address: ${address}`);
         }
     }
 }, addEventListener, postMessage);

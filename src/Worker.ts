@@ -1,5 +1,6 @@
 let {BehaviorSubject} = require('rxjs/BehaviorSubject');
 namespace amjs {
+    export type MessageID = string;
     export type Address = string;
     export type WorkerPath = string;
 
@@ -11,6 +12,22 @@ namespace amjs {
         let state;
 
         function createContext(address: string) {
+            function _send(ref: ActorRef, message: any): MessageID {
+                const messageID = uuid();
+                const outgoingMessage: SendMessage = {
+                    type: MessageTypes.Send,
+                    message: {
+                        target: ref,
+                        payload: message,
+                    },
+                    sender: actorRef(address),
+                    messageID: messageID
+                };
+
+                postmessage(outgoingMessage);
+
+                return messageID;
+            }
             return {
                 actorOf(...args): ActorRef {
                     const name = args[1] || uuid();
@@ -31,21 +48,11 @@ namespace amjs {
                         address: [address, name].join('/'),
                     }
                 },
-                send(ref: ActorRef, message: any) {
-
-                    const messageID = uuid();
-                    const outgoingMessage: SendMessage = {
-                        type: MessageTypes.Send,
-                        message: {
-                            target: ref,
-                            payload: message,
-                        },
-                        sender: actorRef(address),
-                        messageID: messageID
-                    };
-
-                    postmessage(outgoingMessage);
-
+                send(ref: ActorRef, message: any): MessageID {
+                    return _send(ref, message);
+                },
+                sendAndWait(ref: ActorRef, message: any): Promise<any> {
+                    const messageID = _send(ref, message);
                     return ack$
                         .filter((x: Message) => x.type === MessageTypes.Ack)
                         .filter((x: OutgoingMessage) => x.message.respID === messageID)
@@ -84,6 +91,7 @@ namespace amjs {
 
                     if (instance.postStart) {
                         try {
+                            console.log(`[${_address}] postStart()`);
                             instance.postStart();
                         } catch (e) {
                             console.log(`Error in postStart() of ${_address}`, e);
@@ -131,6 +139,7 @@ namespace amjs {
                         };
 
                         try {
+                            console.log(`[${_address}] receive() --- `, message.message);
                             instance.receive(message, {respond, setState, state: state.getValue()});
                         } catch (e) {
                             console.log(`Error from receive() of ${_address}`);

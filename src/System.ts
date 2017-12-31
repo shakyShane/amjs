@@ -90,12 +90,7 @@ namespace amjs {
             };
         }
 
-        /**
-         * @param {amjs.ActorRef} ref
-         * @param message
-         * @returns {Promise<any>}
-         */
-        public send(ref: ActorRef, message: any): Promise<any> {
+        private _send(ref: ActorRef, message: any): MessageID {
             const actor = this.register[ref.address];
             const messageID = uuid();
             const m: Message = {
@@ -105,14 +100,35 @@ namespace amjs {
                 message,
             };
             actor.mailbox.next(m);
+            return messageID;
+        }
+
+        /**
+         * @param {amjs.ActorRef} ref
+         * @param message
+         * @returns {Promise<any>}
+         */
+        public send(ref: ActorRef, message: any): MessageID {
+            return this._send(ref, message);
+        }
+
+
+        /**
+         * @param {amjs.ActorRef} ref
+         * @param message
+         * @returns {Promise<any>}
+         */
+        public sendAndWait(ref: ActorRef, message: any): Promise<any> {
+            const messageID = this._send(ref, message);
             return this.responses
-                // .do(x => console.log(messageID, x.messageID))
                 .filter((x: Message) => x.type === MessageTypes.Outgoing)
                 .filter((x: OutgoingMessage) => x.message.respID === messageID)
                 .pluck('message')
                 .take(1)
                 .toPromise();
         }
+
+
 
         /**
          * @param {string} workerPath

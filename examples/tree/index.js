@@ -1,9 +1,13 @@
 const {createSystem, send} = amjs;
-const system = createSystem('/system', {});
-const actorRef = system.actorOf('worker-parent.js', 'parent');
-const res = system.send(actorRef, 'children');
+
+main();
+
+async function main() {
+    const system = createSystem();
+    const actorRef = system.actorOf('worker-parent.js', 'parent');
+    const {payload} = await system.sendAndWait(actorRef, 'spawn children');
+
+    console.log(payload);
+}
 
 
-// setTimeout(() => {
-//     const res2 = system.send(actorRef, 'children2');
-// }, 2000)
