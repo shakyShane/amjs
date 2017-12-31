@@ -1,18 +1,36 @@
-const {createSystem, send} = amjs;
-const system = createSystem();
-const actorRef = system.actorOf('worker-1.js');
+const system = amjs.createSystem();
 
 run();
 
+/**
+ * Create a Web Worker, send it a message, wait for a response
+ * @returns {Promise}
+ */
 async function run() {
 
-    const out = await Promise.all([
-        system.send(actorRef, 'ping 1!'),
-        system.send(actorRef, 'ping 2!'),
-        system.send(actorRef, 'ping 3!'),
-    ]);
+    const actorRef = system.actorOf('worker-1.js');
+    const {payload} = await system.sendAndWait(actorRef, 'ping!');
 
-    out.forEach((resp, index) => {
-        console.log(resp.payload, index);
-    });
+    console.log(payload); // pong!
 }
+
+
+runMulti();
+
+/**
+ * Create 3 Web Workers, send them all a message, & wait for all to respond
+ * @returns {Promise}
+ */
+async function runMulti() {
+
+    const refs = await Promise.all([
+        system.actorOf('worker-1.js'),
+        system.actorOf('worker-1.js'),
+        system.actorOf('worker-1.js'),
+    ].map(ref => system.sendAndWait(ref, 'ping!')));
+
+    console.log(refs.map(x => x.payload)); // [pong!, pong!, pong!]
+}
+
+
+
