@@ -2,7 +2,6 @@ importScripts('/dist/browser.js');
 amjs.addWorker(function WorkerParent(address, {actorOf, send, sendAndWait}) {
     let child;
     return {
-        type: 'supervisor',
         initialState: {
             count: 0,
         },
@@ -22,4 +21,4 @@ amjs.addWorker(function WorkerParent(address, {actorOf, send, sendAndWait}) {
             // console.log(`[parent] postStart() --- Address: ${address}`);
         }
     }
-}, addEventListener, postMessage);
+});

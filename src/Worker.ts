@@ -1,10 +1,17 @@
 let {BehaviorSubject} = require('rxjs/BehaviorSubject');
+function getWorkerMethods() {
+    return {
+        addEventListener,
+        postMessage
+    }
+}
 namespace amjs {
     export type MessageID = string;
     export type Address = string;
     export type WorkerPath = string;
 
-    export function addWorker(factory, addEventListener, postmessage) {
+    export function addWorker(factory) {
+        const {addEventListener, postMessage} = getWorkerMethods();
         let ack$ = new Subject();
         let hasInstance = false;
         let instance;
@@ -24,7 +31,7 @@ namespace amjs {
                     messageID: messageID
                 };
 
-                postmessage(outgoingMessage);
+                (postMessage as any)(outgoingMessage);
 
                 return messageID;
             }
@@ -42,7 +49,7 @@ namespace amjs {
                         messageID: uuid()
                     };
 
-                    postmessage(createChildMessage);
+                    (postMessage as any)(createChildMessage);
 
                     return {
                         address: [address, name].join('/'),
@@ -105,7 +112,7 @@ namespace amjs {
                         messageID: uuid()
                     };
 
-                    postmessage(readyMessage);
+                    (postMessage as any)(readyMessage);
 
                     break;
                 }
@@ -132,7 +139,7 @@ namespace amjs {
                                 sender: actorRef(_address),
                                 messageID: uuid()
                             };
-                            postmessage(outgoingMessage);
+                            (postMessage as any)(outgoingMessage);
                             if (stateSetter && typeof stateSetter === 'function') {
                                 setState(stateSetter);
                             }

@@ -5,4 +5,4 @@ amjs.addWorker(function Pong(address, context) {
             respond('pong!');
         }
     }
-}, addEventListener, postMessage);
+});

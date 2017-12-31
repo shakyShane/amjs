@@ -5,6 +5,6 @@ namespace amjs {
             ...defaults,
             ...opts
         };
-        return new ActorSystem(address, opts);
+        return new ActorSystem(address, options);
     }
 }

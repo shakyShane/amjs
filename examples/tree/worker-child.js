@@ -15,4 +15,4 @@ amjs.addWorker(function WorkerChild(address, context) {
             // child = context.actorOf('worker-child.js');
         }
     }
-}, addEventListener, postMessage);
+});
