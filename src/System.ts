@@ -144,8 +144,6 @@ namespace amjs {
                 .toPromise();
         }
 
-
-
         /**
          * @param {string} workerPath
          * @param {any} name
@@ -163,19 +161,24 @@ namespace amjs {
             };
             w.postMessage(m);
             w.onerror = (e) => {
-                const parentRef = actorRef(parent);
-                const parentActor = this.register[parent];
-                const {message, filename, lineno} = e;
-                const outgoingMessage = {
-                    type: MessageTypes.ChildError,
-                    message: {
-                        ref: actorRef(address),
-                        error: {message, filename, lineno},
-                    },
-                    sender: parentRef,
-                    messageID: uuid(),
-                };
-                return parentActor.mailbox.next(outgoingMessage);
+                if (!e.filename) {
+                    // probably a 404 error
+                    console.log(`[${parent}] ERROR: Could not load '${workerPath}' as a child - check the file exists`);
+                } else {
+                    const parentRef = actorRef(parent);
+                    const parentActor = this.register[parent];
+                    const {message, filename, lineno} = e;
+                    const outgoingMessage = {
+                        type: MessageTypes.ChildError,
+                        message: {
+                            ref: actorRef(address),
+                            error: {message, filename, lineno},
+                        },
+                        sender: parentRef,
+                        messageID: uuid(),
+                    };
+                    // todo: where to propagate errors
+                }
             };
             w.onmessage = (e) => {
                 if (!this.register[address]) {

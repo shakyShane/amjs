@@ -7,7 +7,7 @@ amjs.addWorker(function WorkerParent(address, {actorOf, send, sendAndWait}) {
         },
         async receive({message}, {respond, state, sender}) {
             if (message === 'spawn children') {
-                child = actorOf('worker-child.js', 'child');
+                child = actorOf('worker-stop-child.js', 'child');
                 const resp = await Promise.all([
                     sendAndWait(child, 100),
                     sendAndWait(child, 200),
