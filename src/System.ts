@@ -10,6 +10,7 @@ namespace amjs {
         address: Address
     }
     export enum MessageTypes {
+        Stop = '@@Stop',
         Send = '@@Send',
         Ack = '@@Ack',
         PreStart = '@@PreStart',
@@ -49,6 +50,7 @@ namespace amjs {
     }
     export enum ActorStatus {
         Pending = '@@Pending',
+        Stopping = '@@Stopping',
         Online = '@@Online',
         Errored = '@@Errored',
     }
@@ -88,6 +90,20 @@ namespace amjs {
                 mailbox: mailbox$,
                 mailboxForwarderSubscription,
             };
+        }
+
+        public stop(ref: ActorRef): MessageID {
+            const actor = this.register[ref.address];
+            const messageID = uuid();
+            const m: Message = {
+                sender: actorRef(this.address),
+                type: MessageTypes.Stop,
+                messageID,
+                message: MessageTypes.Stop,
+            };
+            actor.status = ActorStatus.Stopping;
+            actor.mailbox.next(m);
+            return messageID;
         }
 
         private _send(ref: ActorRef, message: any): MessageID {
