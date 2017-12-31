@@ -1,6 +1,7 @@
 importScripts('/dist/browser.js');
 amjs.addWorker(function WorkerParent(address, {actorOf, send, sendAndWait}) {
     let child;
+    let running = true;
     return {
         initialState: {
             count: 0,
@@ -17,7 +18,10 @@ amjs.addWorker(function WorkerParent(address, {actorOf, send, sendAndWait}) {
                 respond(resp.map(x => x.payload));
             }
             if (message === '@@Stop') {
-                console.log('STOPPPED');
+                running = false;
+                setTimeout(() => {
+                    respond('stopped!');
+                }, 1000);
             }
         },
         postStart() {

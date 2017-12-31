@@ -41,6 +41,7 @@ namespace amjs {
         parent: ActorRef,
         name: string
     }
+    export type StopMessage = Message<MessageTypes.Stop>
     export type OutgoingMessage = Message<MessageOutgoingType>
     export type SendMessage = Message<SendMessageType>
     export type CreateChildActorMessage = Message<MessageCreateChildType>
@@ -51,9 +52,14 @@ namespace amjs {
     export enum ActorStatus {
         Pending = '@@Pending',
         Stopping = '@@Stopping',
+        Stopped = '@@Stopped',
         Online = '@@Online',
         Errored = '@@Errored',
     }
+    export const validStates = new Set([
+        ActorStatus.Online,
+        ActorStatus.Pending,
+    ]);
     export interface ActorRegisterEntry {
         type: ActorTypes,
         status?: ActorStatus,
@@ -92,18 +98,33 @@ namespace amjs {
             };
         }
 
-        public stop(ref: ActorRef): MessageID {
-            const actor = this.register[ref.address];
+        static stopMessage(address: string): StopMessage {
             const messageID = uuid();
-            const m: Message = {
-                sender: actorRef(this.address),
-                type: MessageTypes.Stop,
+            return {
+                sender: actorRef(address),
+                type: MessageTypes.Incoming,
                 messageID,
                 message: MessageTypes.Stop,
             };
-            actor.status = ActorStatus.Stopping;
-            actor.mailbox.next(m);
-            return messageID;
+        }
+
+        public stop(ref: ActorRef): MessageID {
+            const actor = this.register[ref.address];
+            const message = ActorSystem.stopMessage(ref.address);
+            actor.mailbox.next(message);
+            return message.messageID;
+        }
+
+        public stopAndWait(ref: ActorRef): MessageID {
+            const actor = this.register[ref.address];
+            const messageID = this.stop(ref);
+            return this.responses
+                .filter((x: Message) => x.type === MessageTypes.Outgoing)
+                .filter((x: OutgoingMessage) => x.message.respID === messageID)
+                .do(() => actor.status = ActorStatus.Stopped)
+                .pluck('message')
+                .take(1)
+                .toPromise();
         }
 
         private _send(ref: ActorRef, message: any): MessageID {
@@ -128,6 +149,19 @@ namespace amjs {
             return this._send(ref, message);
         }
 
+        static notOnlineMessage(actor): Message {
+            // todo: standard error format for these types of errors
+            return {
+                type: MessageTypes.Outgoing,
+                message: {
+                    payload: 'error',
+                    reason: 'Actor not online or pending'
+                },
+                sender: actor.parent,
+                messageID: uuid()
+            };
+        }
+
 
         /**
          * @param {amjs.ActorRef} ref
@@ -135,10 +169,19 @@ namespace amjs {
          * @returns {Promise<any>}
          */
         public sendAndWait(ref: ActorRef, message: any): Promise<any> {
+            const actor = this.register[ref.address];
+
+            if (!validStates.has(actor.status)) {
+                return Promise.resolve(ActorSystem.notOnlineMessage(actor).message);
+            }
+
             const messageID = this._send(ref, message);
             return this.responses
                 .filter((x: Message) => x.type === MessageTypes.Outgoing)
-                .filter((x: OutgoingMessage) => x.message.respID === messageID)
+                .filter((x: OutgoingMessage) => {
+                    console.log('x.message', x.message);
+                    return x.message.respID === messageID;
+                })
                 .pluck('message')
                 .take(1)
                 .toPromise();
@@ -165,18 +208,19 @@ namespace amjs {
                     // probably a 404 error
                     console.log(`[${parent}] ERROR: Could not load '${workerPath}' as a child - check the file exists`);
                 } else {
-                    const parentRef = actorRef(parent);
-                    const parentActor = this.register[parent];
-                    const {message, filename, lineno} = e;
-                    const outgoingMessage = {
-                        type: MessageTypes.ChildError,
-                        message: {
-                            ref: actorRef(address),
-                            error: {message, filename, lineno},
-                        },
-                        sender: parentRef,
-                        messageID: uuid(),
-                    };
+                    console.log(e);
+                    // const parentRef = actorRef(parent);
+                    // const parentActor = this.register[parent];
+                    // const {message, filename, lineno} = e;
+                    // const outgoingMessage = {
+                    //     type: MessageTypes.ChildError,
+                    //     message: {
+                    //         ref: actorRef(address),
+                    //         error: {message, filename, lineno},
+                    //     },
+                    //     sender: parentRef,
+                    //     messageID: uuid(),
+                    // };
                     // todo: where to propagate errors
                 }
             };
@@ -271,11 +315,13 @@ namespace amjs {
             const mailbox$ = new Subject();
             const mailboxForwarderSubscription = mailbox$
                 .do(x => {
-                    const status = this.register[address].status;
-                    if (status !== ActorStatus.Errored) {
+                    const actor = this.register[address];
+                    const status = actor.status;
+                    if (validStates.has(status)) {
+                        // console.log('ye', status)
                         w.postMessage(x);
                     } else {
-                        console.log('skipping a message');
+                        console.log(`[${address}] skipped --- status: ${status}`);
                     }
                 })
                 .subscribe();
