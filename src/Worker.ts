@@ -66,6 +66,23 @@ namespace amjs {
                         .pluck('message')
                         .take(1)
                         .toPromise();
+                },
+                stop(ref: ActorRef) {
+                    // stop message for actor
+                    const message = ActorSystem.stopMessage();
+
+                    // remoteStopMessage for system
+                    const messageID = _send(ref, message);
+
+                    const remoteStop = ActorSystem.remoteStopMessage(ref, actorRef(_address));
+                    (postMessage as any)(remoteStop);
+                    return messageID;
+                    // return ack$
+                    //     .filter((x: Message) => x.type === MessageTypes.Ack)
+                    //     .filter((x: OutgoingMessage) => x.message.responseID === messageID)
+                    //     .pluck('message')
+                    //     .take(1)
+                    //     .toPromise();
                 }
             }
         }
