@@ -80,7 +80,7 @@ namespace amjs {
         return {address};
     }
     export class ActorSystem {
-        public register: {[address: string]: ActorRegisterEntry} = {};
+        public register: Map<string, ActorRegisterEntry>;
         public responses = new Subject();
         constructor(public address: string, public opts: string) {
 
@@ -89,19 +89,20 @@ namespace amjs {
                 .filter((x: Message) => x.type === MessageTypes.ChildError)
                 .pluck('message')
                 .do(x => {
-                    const actor = this.register[x.ref.address];
+                    const actor = this.register.get(x.ref.address);
                     actor.status = ActorStatus.Errored;
                     this.actorOf(actor.workerPath, actor.ref.address, actor.parent.address);
                 })
                 .subscribe();
 
-            this.register[address] = {
+            this.register = new Map();
+            this.register.set(address, {
                 type: ActorTypes.System,
                 status: ActorStatus.Pending,
                 ref: {address},
                 mailbox: mailbox$,
                 mailboxForwarderSubscription,
-            };
+            });
         }
 
         static stopMessage(address: string): StopMessage {
@@ -115,26 +116,29 @@ namespace amjs {
         }
 
         public stop(ref: ActorRef): MessageID {
-            const actor = this.register[ref.address];
+            const actor = this.register.get(ref.address);
             const message = ActorSystem.stopMessage(ref.address);
             actor.mailbox.next(message);
             return message.messageID;
         }
 
         public stopAndWait(ref: ActorRef): MessageID {
-            const actor = this.register[ref.address];
+            const actor = this.register.get(ref.address);
             const messageID = this.stop(ref);
             return this.responses
                 .filter((x: Message) => x.type === MessageTypes.Outgoing)
                 .filter((x: OutgoingMessage) => x.message.responseID === messageID)
-                .do(() => actor.status = ActorStatus.Stopped)
+                .do(() => {
+                    actor.status = ActorStatus.Stopped;
+                    this.register.delete(ref.address);
+                })
                 .pluck('message')
                 .take(1)
                 .toPromise();
         }
 
         private _send(ref: ActorRef, message: any): MessageID {
-            const actor = this.register[ref.address];
+            const actor = this.register.get(ref.address);
             const messageID = uuid();
             const m: Message = {
                 sender: actorRef(this.address),
@@ -175,9 +179,9 @@ namespace amjs {
          * @returns {Promise<any>}
          */
         public sendAndWait(ref: ActorRef, message: any): Promise<any> {
-            const actor = this.register[ref.address];
+            const actor = this.register.get(ref.address);
 
-            if (!validStates.has(actor.status)) {
+            if (!actor || !validStates.has(actor.status)) {
                 return Promise.resolve(ActorSystem.notOnlineMessage(actor).message);
             }
 
@@ -230,7 +234,7 @@ namespace amjs {
                 }
             };
             w.onmessage = (e) => {
-                if (!this.register[address]) {
+                if (!this.register.has(address)) {
                     return;
                 }
 
@@ -238,7 +242,7 @@ namespace amjs {
 
                 switch(data.type) {
                     case MessageTypes.PostStart: {
-                        this.register[address].status = ActorStatus.Online;
+                        this.register.get(address).status = ActorStatus.Online;
                         break;
                     }
                     case MessageTypes.Outgoing: {
@@ -247,7 +251,7 @@ namespace amjs {
                     }
                     case MessageTypes.Send: {
                         const data: SendMessage = e.data;
-                        const targetActor = this.register[data.message.target.address];
+                        const targetActor = this.register.get(data.message.target.address);
                         const originalAckId = data.messageID;
 
                         /**
@@ -320,7 +324,7 @@ namespace amjs {
             const mailbox$ = new Subject();
             const mailboxForwarderSubscription = mailbox$
                 .do(x => {
-                    const actor = this.register[address];
+                    const actor = this.register.get(address);
                     const status = actor.status;
                     if (validStates.has(status)) {
                         // console.log('ye', status)
@@ -331,7 +335,7 @@ namespace amjs {
                 })
                 .subscribe();
 
-            this.register[address] = {
+            this.register.set(address, {
                 type: ActorTypes.Worker,
                 status: ActorStatus.Pending,
                 ref: {address},
@@ -340,7 +344,7 @@ namespace amjs {
                 mailboxForwarderSubscription,
                 parent: actorRef(parent),
                 workerPath,
-            };
+            });
 
             return {
                 address
