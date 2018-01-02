@@ -27,24 +27,30 @@ namespace amjs {
         messageID: string
         sender: ActorRef,
     }
-    export interface MessageOutgoingType {
+    export interface OutgoingMessagePayload {
         payload: any,
-        respID: Address,
+        responseID: Address,
         target: ActorRef
     }
-    export interface SendMessageType {
+    export interface SendMessagePayload {
         payload: any,
         target: ActorRef
     }
-    export interface MessageCreateChildType {
+    export interface CreateChildMessagePayload {
         workerPath: WorkerPath,
         parent: ActorRef,
         name: string
     }
+    export interface ErrorMessagePayload {
+        error: boolean,
+        payload: any,
+        reason: string,
+    }
     export type StopMessage = Message<MessageTypes.Stop>
-    export type OutgoingMessage = Message<MessageOutgoingType>
-    export type SendMessage = Message<SendMessageType>
-    export type CreateChildActorMessage = Message<MessageCreateChildType>
+    export type ErrorMessage = Message<ErrorMessagePayload>
+    export type OutgoingMessage = Message<OutgoingMessagePayload>
+    export type SendMessage = Message<SendMessagePayload>
+    export type CreateChildActorMessage = Message<CreateChildMessagePayload>
     export enum ActorTypes {
         System = 'System',
         Worker = 'Worker'
@@ -120,7 +126,7 @@ namespace amjs {
             const messageID = this.stop(ref);
             return this.responses
                 .filter((x: Message) => x.type === MessageTypes.Outgoing)
-                .filter((x: OutgoingMessage) => x.message.respID === messageID)
+                .filter((x: OutgoingMessage) => x.message.responseID === messageID)
                 .do(() => actor.status = ActorStatus.Stopped)
                 .pluck('message')
                 .take(1)
@@ -149,11 +155,12 @@ namespace amjs {
             return this._send(ref, message);
         }
 
-        static notOnlineMessage(actor): Message {
+        static notOnlineMessage(actor): ErrorMessage {
             // todo: standard error format for these types of errors
             return {
                 type: MessageTypes.Outgoing,
                 message: {
+                    error: true,
                     payload: 'error',
                     reason: 'Actor not online or pending'
                 },
@@ -161,7 +168,6 @@ namespace amjs {
                 messageID: uuid()
             };
         }
-
 
         /**
          * @param {amjs.ActorRef} ref
@@ -179,8 +185,7 @@ namespace amjs {
             return this.responses
                 .filter((x: Message) => x.type === MessageTypes.Outgoing)
                 .filter((x: OutgoingMessage) => {
-                    console.log('x.message', x.message);
-                    return x.message.respID === messageID;
+                    return x.message.responseID === messageID;
                 })
                 .pluck('message')
                 .take(1)
@@ -261,7 +266,7 @@ namespace amjs {
                             this.responses
                             // .do(x => console.log(messageID, x.messageID))
                                 .filter((x: Message) => x.type === MessageTypes.Outgoing)
-                                .filter((x: OutgoingMessage) => x.message.respID === messageID)
+                                .filter((x: OutgoingMessage) => x.message.responseID === messageID)
                                 .pluck('message')
                                 .take(1)
                                 .do(x => {
@@ -271,7 +276,7 @@ namespace amjs {
                                         type: MessageTypes.Ack,
                                         messageID: ackid,
                                         message: {
-                                            respID: originalAckId,
+                                            responseID: originalAckId,
                                             payload: x.payload,
                                         },
                                     };

@@ -62,7 +62,7 @@ namespace amjs {
                     const messageID = _send(ref, message);
                     return ack$
                         .filter((x: Message) => x.type === MessageTypes.Ack)
-                        .filter((x: OutgoingMessage) => x.message.respID === messageID)
+                        .filter((x: OutgoingMessage) => x.message.responseID === messageID)
                         .pluck('message')
                         .take(1)
                         .toPromise();
@@ -133,7 +133,7 @@ namespace amjs {
                                 type: MessageTypes.Outgoing,
                                 message: {
                                     target: message.sender,
-                                    respID: message.messageID,
+                                    responseID: message.messageID,
                                     payload,
                                 },
                                 sender: actorRef(_address),
