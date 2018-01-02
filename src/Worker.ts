@@ -36,12 +36,12 @@ namespace amjs {
                 return messageID;
             }
             return {
-                actorOf(...args): ActorRef {
-                    const name = args[1] || uuid();
+                actorOf(workerPath: string, _name?: string): ActorRef {
+                    const name = _name || uuid();
                     const createChildMessage: CreateChildActorMessage = {
                         type: MessageTypes.CreateChildActor,
                         message: {
-                            workerPath: args[0],
+                            workerPath,
                             parent: actorRef(address),
                             name,
                         },
@@ -86,6 +86,7 @@ namespace amjs {
         addEventListener('message', function(e) {
             const message: Message = e.data;
             switch(message.type) {
+
                 case MessageTypes.PreStart: {
                     if (hasInstance) {
                         return;
@@ -94,7 +95,7 @@ namespace amjs {
                     const {address} = message.message;
 
                     _address = address;
-                    // const parent = message.sender;
+
                     const context = createContext(_address);
 
                     instance = new factory(address, context);
