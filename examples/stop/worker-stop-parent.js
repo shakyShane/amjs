@@ -21,6 +21,7 @@ amjs.addWorker(function WorkerParent(address, {actorOf, send, sendAndWait}) {
                 running = false;
                 setTimeout(() => {
                     respond('stopped!');
+                    close();
                 }, 1000);
             }
         },

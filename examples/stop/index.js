@@ -16,9 +16,10 @@ async function main() {
     debug(stopped);
     setTimeout(async () => {
         try {
-            const output = await system.sendAndWait(actorRef, 'soemthing else');
+            const output = await system.sendAndWait(actorRef, 'something');
             debug(output);
         } catch(e) {
+            console.log(e);
             console.log('after');
         }
     }, 1000);

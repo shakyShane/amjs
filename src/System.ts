@@ -140,13 +140,15 @@ namespace amjs {
         private _send(ref: ActorRef, message: any): MessageID {
             const actor = this.register.get(ref.address);
             const messageID = uuid();
-            const m: Message = {
-                sender: actorRef(this.address),
-                type: MessageTypes.Incoming,
-                messageID,
-                message,
-            };
-            actor.mailbox.next(m);
+            if (actor) {
+                const m: Message = {
+                    sender: actorRef(this.address),
+                    type: MessageTypes.Incoming,
+                    messageID,
+                    message,
+                };
+                actor.mailbox.next(m);
+            }
             return messageID;
         }
 
@@ -159,7 +161,7 @@ namespace amjs {
             return this._send(ref, message);
         }
 
-        static notOnlineMessage(actor): ErrorMessage {
+        static notOnlineMessage(): ErrorMessage {
             // todo: standard error format for these types of errors
             return {
                 type: MessageTypes.Outgoing,
@@ -168,7 +170,7 @@ namespace amjs {
                     payload: 'error',
                     reason: 'Actor not online or pending'
                 },
-                sender: actor.parent,
+                sender: {address: ''},
                 messageID: uuid()
             };
         }
@@ -182,7 +184,7 @@ namespace amjs {
             const actor = this.register.get(ref.address);
 
             if (!actor || !validStates.has(actor.status)) {
-                return Promise.resolve(ActorSystem.notOnlineMessage(actor).message);
+                return Promise.resolve(ActorSystem.notOnlineMessage().message);
             }
 
             const messageID = this._send(ref, message);
