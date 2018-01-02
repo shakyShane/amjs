@@ -1,22 +1,17 @@
 importScripts('/dist/browser.js');
-amjs.addWorker(function WorkerParent(address, {actorOf, send, stop, sendAndWait}) {
+amjs.addWorker(function WorkerParent(address, {actorOf, send, stop, sendAndWait, stopAndWait}) {
     let child;
-    let running = true;
     return {
-        async receive({message}, {respond, state, sender}) {
+        async receive({message, sender}, {respond}) {
             if (message === 'spawn children') {
                 child = actorOf('worker-stop-child.js', 'child');
                 respond('ok');
             }
             if (message === 'stop children') {
-                stop(child);
-                setTimeout(() => {
-                    // send(child, 'other');
-                }, 1000)
+                console.log(sender);
+                const {payload} = await stopAndWait(child);
+                respond(payload);
             }
-        },
-        postStart() {
-            // console.log(`[parent] postStart() --- Address: ${address}`);
         }
     }
 });

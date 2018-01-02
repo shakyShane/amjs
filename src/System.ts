@@ -47,11 +47,6 @@ namespace amjs {
         payload: any,
         reason: string,
     }
-    export interface RemoteStopPayload {
-        target: ActorRef
-    }
-    export type StopMessage = Message<MessageTypes.Stop>
-    export type RemoteStopMessage = Message<RemoteStopPayload>
     export type ErrorMessage = Message<ErrorMessagePayload>
     export type OutgoingMessage = Message<OutgoingMessagePayload>
     export type SendMessage = Message<SendMessagePayload>
@@ -110,42 +105,12 @@ namespace amjs {
             });
         }
 
-        static stopMessage(): StopMessage {
-            const messageID = uuid();
-            return {
-                sender: {address: ''},
-                type: MessageTypes.Incoming,
-                messageID,
-                message: MessageTypes.Stop,
-            };
-        }
-
-        static remoteStopMessage(ref: ActorRef, sender: ActorRef): RemoteStopMessage {
-            const messageID = uuid();
-            return {
-                sender,
-                type: MessageTypes.RemoteStop,
-                messageID,
-                message: {
-                    target: ref,
-                },
-            };
-        }
-
         public stop(ref: ActorRef): MessageID {
-            const messageId = this._stopMessage(ref);
-            this._stop(ref);
-            return messageId;
+            const message = MessageTypes.Stop;
+            return this._send(ref, message);
         }
 
-        public _stopMessage(ref: ActorRef) {
-            const actor = this.register.get(ref.address);
-            const message = ActorSystem.stopMessage();
-            actor.mailbox.next(message);
-            return message.messageID;
-        }
-
-        public _stop(ref: ActorRef) {
+        private _removeActorFromRegister(ref: ActorRef) {
             const actor = this.register.get(ref.address);
             if (actor) {
                 actor.status = ActorStatus.Stopped;
@@ -153,13 +118,14 @@ namespace amjs {
             }
         }
 
-        public stopAndWait(ref: ActorRef): MessageID {
-            const messageID = this._stopMessage(ref);
+        public stopAndWait(ref: ActorRef): Promise<any> {
+            const message = MessageTypes.Stop;
+            const messageID = this._send(ref, message);
             return this.responses
                 .filter((x: Message) => x.type === MessageTypes.Outgoing)
                 .filter((x: OutgoingMessage) => x.message.responseID === messageID)
                 .do(() => {
-                    this._stop(ref);
+                    this._removeActorFromRegister(ref);
                 })
                 .pluck('message')
                 .take(1)
@@ -272,9 +238,6 @@ namespace amjs {
                 const data: Message = e.data;
 
                 switch(data.type) {
-                    case MessageTypes.RemoteStop: {
-                        console.log('----->, RemoteStop', data);
-                    }
                     case MessageTypes.PostStart: {
                         this.register.get(address).status = ActorStatus.Online;
                         break;
@@ -293,7 +256,6 @@ namespace amjs {
                          * Send the message
                          */
                         if (targetActor && targetActor.status !== ActorStatus.Errored) {
-                            console.log('-->', data.message.payload);
                             const messageID = uuid();
                             const m: Message = {
                                 sender: actorRef(address),

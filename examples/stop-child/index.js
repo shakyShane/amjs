@@ -12,5 +12,6 @@ async function main() {
     const actorRef = system.actorOf('worker-stop-parent.js', 'parent');
     const first = await system.sendAndWait(actorRef, 'spawn children');
     debug(first);
-    system.send(actorRef, 'stop children');
+    const resp = await system.sendAndWait(actorRef, 'stop children');
+    debug(resp);
 }
