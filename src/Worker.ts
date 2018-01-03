@@ -79,6 +79,24 @@ namespace amjs {
                         .pluck('message')
                         .take(1)
                         .toPromise();
+                },
+                actorSelection(search: string): Promise<ActorRef[]> {
+                    const messageID = uuid();
+                    const message: ActorSelectionMessage = {
+                        type: MessageTypes.ActorSelection,
+                        message: search,
+                        messageID,
+                        sender: actorRef(_address),
+                    };
+
+                    (postMessage as any)(message);
+
+                    return ack$
+                        .filter((x: Message) => x.type === MessageTypes.Ack)
+                        .filter((x: OutgoingMessage) => x.message.responseID === messageID)
+                        .pluck('message')
+                        .take(1)
+                        .toPromise();
                 }
             }
         }

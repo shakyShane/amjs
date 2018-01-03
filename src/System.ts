@@ -21,6 +21,7 @@ namespace amjs {
         Response = '@@Response',
         CreateChildActor = '@@CreateChildActor',
         ChildError = '@@ChildError',
+        ActorSelection = '@@ActorSelection',
     }
     export interface Message<T = any> {
         type: MessageTypes
@@ -47,6 +48,7 @@ namespace amjs {
         payload: any,
         reason: string,
     }
+    export type ActorSelectionMessage = Message<string>
     export type ErrorMessage = Message<ErrorMessagePayload>
     export type OutgoingMessage = Message<OutgoingMessagePayload>
     export type SendMessage = Message<SendMessagePayload>
@@ -238,6 +240,43 @@ namespace amjs {
                 const data: Message = e.data;
 
                 switch(data.type) {
+                    case MessageTypes.ActorSelection: {
+                        const data: ActorSelectionMessage = e.data;
+                        const search: string = data.message;
+                        const sender: Address = data.sender.address;
+                        const senderPathLength = data.sender.address.split('/').length;
+                        const addresses = Array.from(this.register.keys());
+
+                        if (search === '*') {
+                            // console.log(sender);
+                            // console.log(addresses);
+                            const matches = addresses
+                                .filter(x => x.indexOf(sender) === 0)
+                                .filter(x => x !== sender)
+                                .map(x => [x, x.split('/')])
+                                .filter(([, split]) => split.length === senderPathLength + 1)
+                                .map(([x]) => x)
+
+                            console.log(matches, senderPathLength);
+
+                            // console.log(matches, senderPathLength);
+                        }
+                        // console.log(Array.from(this.register.keys()));
+                        // const targetActor = this.register.get(data.message.sender.address);
+                        // const originalAckId = data.messageID;
+                        // const ackid = uuid();
+                        // const m: Message = {
+                        //     sender: actorRef(address),
+                        //     type: MessageTypes.Ack,
+                        //     messageID: ackid,
+                        //     message: {
+                        //         responseID: originalAckId,
+                        //         payload: x.payload,
+                        //     },
+                        // };
+                        // w.postMessage(m);
+                        break;
+                    }
                     case MessageTypes.PostStart: {
                         this.register.get(address).status = ActorStatus.Online;
                         break;
