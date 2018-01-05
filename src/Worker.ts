@@ -18,6 +18,20 @@ namespace amjs {
         let _address;
         let state;
 
+        /**
+         * Helper for responding to an ack
+         * @param {amjs.MessageID} messageID
+         * @returns {Promise<any>}
+         */
+        function getAck(messageID: MessageID): Promise<any> {
+            return ack$
+                .filter((x: Message) => x.type === MessageTypes.Ack)
+                .filter((x: OutgoingMessage) => x.message.responseID === messageID)
+                .pluck('message')
+                .take(1)
+                .toPromise();
+        }
+
         function createContext(address: string) {
             function _send(ref: ActorRef, message: any): MessageID {
                 const messageID = uuid();
@@ -60,12 +74,7 @@ namespace amjs {
                 },
                 sendAndWait(ref: ActorRef, message: any): Promise<any> {
                     const messageID = _send(ref, message);
-                    return ack$
-                        .filter((x: Message) => x.type === MessageTypes.Ack)
-                        .filter((x: OutgoingMessage) => x.message.responseID === messageID)
-                        .pluck('message')
-                        .take(1)
-                        .toPromise();
+                    return getAck(messageID);
                 },
                 stop(ref: ActorRef): MessageID {
                     return _send(ref, MessageTypes.Stop);
@@ -73,12 +82,7 @@ namespace amjs {
                 stopAndWait(ref: ActorRef): Promise<any> {
                     const messageID = _send(ref, MessageTypes.Stop);
 
-                    return ack$
-                        .filter((x: Message) => x.type === MessageTypes.Ack)
-                        .filter((x: OutgoingMessage) => x.message.responseID === messageID)
-                        .pluck('message')
-                        .take(1)
-                        .toPromise();
+                    return getAck(messageID);
                 },
                 actorSelection(search: string): Promise<ActorRef[]> {
                     const messageID = uuid();
@@ -91,12 +95,7 @@ namespace amjs {
 
                     (postMessage as any)(message);
 
-                    return ack$
-                        .filter((x: Message) => x.type === MessageTypes.Ack)
-                        .filter((x: OutgoingMessage) => x.message.responseID === messageID)
-                        .pluck('message')
-                        .take(1)
-                        .toPromise();
+                    return getAck(messageID);
                 }
             }
         }

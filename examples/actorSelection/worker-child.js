@@ -1,9 +1,11 @@
 importScripts('/dist/browser.js');
-amjs.addWorker(function WorkerChild(address, {actorOf}) {
+amjs.addWorker(function WorkerChild(address, {actorOf, stopAndWait, actorSelection}) {
     return {
-        receive({message, sender}, {respond}) {
+        async receive({message, sender}, {respond}) {
             if (message === '@@Stop') {
-                respond('Child stopped!');
+                const children = await actorSelection('*');
+                const allDone = await Promise.all(children.map(child => stopAndWait({address: child})));
+                respond(allDone);
             } else {
                 console.log('got a regular message', message);
             }

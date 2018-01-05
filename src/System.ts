@@ -248,33 +248,28 @@ namespace amjs {
                         const addresses = Array.from(this.register.keys());
 
                         if (search === '*') {
-                            // console.log(sender);
-                            // console.log(addresses);
+
                             const matches = addresses
                                 .filter(x => x.indexOf(sender) === 0)
                                 .filter(x => x !== sender)
                                 .map(x => [x, x.split('/')])
                                 .filter(([, split]) => split.length === senderPathLength + 1)
-                                .map(([x]) => x)
+                                .map(([x]) => x);
 
-                            console.log(matches, senderPathLength);
-
-                            // console.log(matches, senderPathLength);
+                            const originalAckId = data.messageID;
+                            const ackid = uuid();
+                            const m: Message = {
+                                sender: actorRef(address),
+                                type: MessageTypes.Ack,
+                                messageID: ackid,
+                                message: {
+                                    responseID: originalAckId,
+                                    payload: matches,
+                                },
+                            };
+                            w.postMessage(m);
                         }
                         // console.log(Array.from(this.register.keys()));
-                        // const targetActor = this.register.get(data.message.sender.address);
-                        // const originalAckId = data.messageID;
-                        // const ackid = uuid();
-                        // const m: Message = {
-                        //     sender: actorRef(address),
-                        //     type: MessageTypes.Ack,
-                        //     messageID: ackid,
-                        //     message: {
-                        //         responseID: originalAckId,
-                        //         payload: x.payload,
-                        //     },
-                        // };
-                        // w.postMessage(m);
                         break;
                     }
                     case MessageTypes.PostStart: {
