@@ -12,8 +12,10 @@
     "stripInternal": true,
     "sourceMap": true,
     "target": "es5",
+    "module": "es6",
     "newLine": "lf",
-    "outFile": "dist/amjs.js",
+    "outDir": "dist",
+    "moduleResolution": "Node",
     "declaration": true
   },
   "include": [

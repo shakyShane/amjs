@@ -19,4 +19,4 @@ tasks:
     - browserify
 
   ts: '@npm tsc'
-  browserify: '@npm browserify dist/amjs.js -d --standalone amjs > dist/browser.js'
+  browserify: '@npm browserify dist/createSystem.js -d --standalone amjs > dist/browser.js'
